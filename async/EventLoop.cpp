@@ -31,16 +31,21 @@ const int EVENT_NUMBER = 100;
             int fd = event.data.fd;
             if (event.events & EPOLLOUT && write_waiters.contains(fd)) {
                 // let`s register_on_write_callback
-                // for now, assuming that we will always register_on_write_callback everything
                 auto client = write_waiters.at(fd);
                 ssize_t write_ret = ::write(fd, client->write_string.c_str(), client->write_string.size());
                 if (write_ret < 0) {
                     printf("register_on_write_callback error: %s\n", strerror(errno));
+                    exit(0);
                 }
-                // erase fd from events
-                write_waiters.erase(fd);
-                // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
-                client->on_write(write_ret);
+                if (write_ret == client->write_string.size()) {
+                    // erase fd from events
+                    write_waiters.erase(fd);
+                    // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
+                    client->on_write(write_ret);
+                } else {
+                    // this isn`t really effective
+                    client->write_string = client->write_string.substr(write_ret);
+                }
             } else if (event.events & EPOLLIN && client_factories.contains(fd)) {
                 int client_fd = accept4(fd, nullptr, nullptr, SOCK_NONBLOCK);
                 if (client_fd < 0) {
