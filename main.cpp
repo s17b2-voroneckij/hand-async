@@ -47,12 +47,12 @@ public:
 protected:
     void on_accept() override {
         cerr << "on_accept called for client " << "\n";
-        read(READ_SIZE);
+        initiate_read(READ_SIZE);
     }
 
     void on_write(ssize_t writen_size) override {
-        // cerr << "on write called for fd: " << "\n";
-        read(READ_SIZE);
+        // cerr << "on initiate_write called for fd: " << "\n";
+        initiate_read(READ_SIZE);
     }
 
     void on_read(ssize_t read_ret, string s) override {
@@ -61,7 +61,7 @@ protected:
             fprintf(stderr, "client finished, leaving\n");
             return;
         }
-        write(s);
+        initiate_write(s);
     }
 };
 

@@ -23,9 +23,9 @@ protected:
 
     virtual void on_write(ssize_t writen_size) = 0;
 
-    void read(ssize_t read_size_);
+    void initiate_read(ssize_t read_size_);
 
-    void write(const string& s);
+    void initiate_write(const string& s);
 
 private:
     EventLoop* loop;

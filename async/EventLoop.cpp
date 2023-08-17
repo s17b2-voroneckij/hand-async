@@ -66,7 +66,7 @@ const int EVENT_NUMBER = 100;
                 char buf[size];
                 ssize_t read_ret = ::read(fd, buf, size);
                 if (read_ret < 0) {
-                    printf("read error: %s\n", strerror(errno));
+                    printf("initiate_read error: %s\n", strerror(errno));
                     exit(0);
                 }
                 read_waiters.erase(fd);
