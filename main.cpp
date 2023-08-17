@@ -12,7 +12,7 @@
 const int PORT = 8093;
 const int READ_SIZE = 100;
 
-int main() {
+int init_listening() {
     int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_fd < 0) {
         printf("socket error: %s\n", strerror(errno));
@@ -36,6 +36,11 @@ int main() {
         exit(0);
     }
     printf("listening on port %d\n", PORT);
+    return socket_fd;
+}
+
+int main() {
+    int socket_fd = init_listening();
     EventLoop eventLoop;
     on_accept_callback_type on_accept;
     on_write_callback_type on_write;
