@@ -82,7 +82,7 @@ int main() {
     int socket_fd = init_listening();
     EventLoop eventLoop;
     eventLoop.register_client(socket_fd, [] () {
-        return std::make_shared<EchoClient>();
+        return std::shared_ptr<IClient>(new EchoClient());
     });
     eventLoop.run_forever();
 }
