@@ -8,10 +8,11 @@
 #include <fstream>
 #include <unistd.h>
 #include "async/EventLoop.hpp"
+#include <memory>
 
 using std::cerr;
 
-const int PORT = 8093;
+const int PORT = 8094;
 const int READ_SIZE = 100;
 
 int init_listening() {
@@ -41,42 +42,47 @@ int init_listening() {
     return socket_fd;
 }
 
+class EchoClient: public IClient {
+public:
+    EchoClient() = default;
+
+protected:
+    void on_accept() override {
+        cerr << "on_accept called for client " << "\n";
+        read(READ_SIZE);
+    }
+
+    void on_write(ssize_t writen_size) override {
+        // cerr << "on write called for fd: " << "\n";
+        if (writen_size < 0) {
+            fprintf(stderr, "register_on_write_callback error %s\n", strerror(errno));
+            return ;
+        }
+        if (writen_size == 0) {
+            fprintf(stderr, "wrote 0, weird\n");
+        }
+        read(READ_SIZE);
+    }
+
+    void on_read(ssize_t read_ret, string s) override {
+        // cerr << "on_read called with " << " s: " << s << "\n";
+        if (read_ret < 0) {
+            fprintf(stderr, "register_on_read_callback error %s\n", strerror(errno));
+            return ;
+        }
+        if (read_ret == 0) {
+            fprintf(stderr, "client finished, leaving\n");
+            return;
+        }
+        write(s);
+    }
+};
+
 int main() {
     int socket_fd = init_listening();
     EventLoop eventLoop;
-    on_accept_callback_type on_accept;
-    on_write_callback_type on_write;
-    on_read_callback_type on_read;
-    on_accept = [&] (int client_fd) {
-        cerr << "on_accept called for client " << client_fd << "\n";
-        eventLoop.register_on_read_callback(client_fd, READ_SIZE, on_read);
-    };
-    on_read = [&] (int client_fd, int read, const string& s) {
-        cerr << "on_read called with fd " << client_fd << " s: " << s << "\n";
-        if (read < 0) {
-            fprintf(stderr, "register_on_read_callback error %s\n", strerror(errno));
-            eventLoop.close_fd(client_fd);
-            return ;
-        }
-        if (read == 0) {
-            fprintf(stderr, "client finished, leaving\n");
-            eventLoop.close_fd(client_fd);
-            return;
-        }
-        eventLoop.register_on_write_callback(client_fd, s.size(), s, on_write);
-    };
-    on_write = [&] (int client_fd, int wrote) {
-        cerr << "on write called for fd: " << client_fd << "\n";
-        if (wrote < 0) {
-            fprintf(stderr, "register_on_write_callback error %s\n", strerror(errno));
-            eventLoop.close_fd(client_fd);
-            return ;
-        }
-        if (wrote == 0) {
-            fprintf(stderr, "wrote 0, weird\n");
-        }
-        eventLoop.register_on_read_callback(client_fd, READ_SIZE, on_read);
-    };
-    eventLoop.register_on_accept_callback(socket_fd, on_accept);
+    eventLoop.register_client(socket_fd, [] () {
+        return std::make_shared<EchoClient>();
+    });
     eventLoop.run_forever();
 }
