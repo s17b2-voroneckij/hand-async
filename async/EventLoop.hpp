@@ -22,15 +22,15 @@ public:
 
     ~EventLoop();
 
-    void register_on_accept(int sock_fd, const on_accept_callback_type& on_accept_callback);
+    void register_on_accept_callback(int sock_fd, const on_accept_callback_type& on_accept_callback);
 
     [[noreturn]] void run_forever();
 
-    void write(int fd, size_t length, const string& s, const on_write_callback_type& on_write_callback);
+    void register_on_write_callback(int fd, size_t length, const string& s, const on_write_callback_type& on_write_callback);
 
-    void read(int fd, size_t length, const on_read_callback_type& on_read_callback);
+    void register_on_read_callback(int fd, size_t length, const on_read_callback_type& on_read_callback);
 
-    void close(int fd);
+    void close_fd(int fd);
 
 private:
     int epoll_fd;

@@ -41,32 +41,32 @@ int main() {
     on_write_callback_type on_write;
     on_read_callback_type on_read;
     on_accept = [&] (int client_fd) {
-        eventLoop.read(client_fd, READ_SIZE, on_read);
+        eventLoop.register_on_read_callback(client_fd, READ_SIZE, on_read);
     };
     on_read = [&] (int client_fd, int read, const string& s) {
         if (read < 0) {
-            printf("read error %s\n", strerror(errno));
-            eventLoop.close(client_fd);
+            printf("register_on_read_callback error %s\n", strerror(errno));
+            eventLoop.close_fd(client_fd);
             return ;
         }
         if (read == 0) {
             printf("client finished, leaving\n");
-            eventLoop.close(client_fd);
+            eventLoop.close_fd(client_fd);
             return;
         }
-        eventLoop.write(client_fd, s.size(), s, on_write);
+        eventLoop.register_on_write_callback(client_fd, s.size(), s, on_write);
     };
     on_write = [&] (int client_fd, int wrote) {
         if (wrote < 0) {
-            printf("write error %s\n", strerror(errno));
-            eventLoop.close(client_fd);
+            printf("register_on_write_callback error %s\n", strerror(errno));
+            eventLoop.close_fd(client_fd);
             return ;
         }
         if (wrote == 0) {
             printf("wrote 0, weird\n");
         }
-        eventLoop.read(client_fd, READ_SIZE, on_read);
+        eventLoop.register_on_read_callback(client_fd, READ_SIZE, on_read);
     };
-    eventLoop.register_on_accept(socket_fd, on_accept);
+    eventLoop.register_on_accept_callback(socket_fd, on_accept);
     eventLoop.run_forever();
 }

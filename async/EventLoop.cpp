@@ -13,10 +13,10 @@ EventLoop::EventLoop() {
 }
 
 EventLoop::~EventLoop() {
-    close(epoll_fd);
+    close_fd(epoll_fd);
 }
 
-void EventLoop::register_on_accept(int sock_fd, const on_accept_callback_type &on_accept_callback) {
+void EventLoop::register_on_accept_callback(int sock_fd, const on_accept_callback_type &on_accept_callback) {
     epoll_event event{};
     event.data.fd = sock_fd;
     event.events = EPOLLIN;
@@ -41,11 +41,11 @@ const int EVENT_NUMBER = 100;
             auto event = events[i];
             int fd = event.data.fd;
             if (event.events & EPOLLOUT && write_waiters.contains(fd)) {
-                // let`s write
-                // for now, assuming that we will always write everything
+                // let`s register_on_write_callback
+                // for now, assuming that we will always register_on_write_callback everything
                 ssize_t write_ret = ::write(fd, write_data.at(fd).c_str(), write_data.at(fd).size());
                 if (write_ret < 0) {
-                    printf("write error: %s\n", strerror(errno));
+                    printf("register_on_write_callback error: %s\n", strerror(errno));
                 }
                 auto func = write_waiters.at(fd);
                 // erase fd from events
@@ -64,7 +64,7 @@ const int EVENT_NUMBER = 100;
                 // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
                 func(client_fd);
             } else if (event.events & EPOLLIN && read_waiters.contains(fd)) {
-                // let`s read
+                // let`s register_on_read_callback
                 size_t size = read_sizes.at(fd);
                 char buf[size];
                 ssize_t read_ret = ::read(fd, buf, size);
@@ -77,7 +77,7 @@ const int EVENT_NUMBER = 100;
     }
 }
 
-void EventLoop::write(int fd, size_t length, const string &s, const on_write_callback_type &on_write_callback) {
+void EventLoop::register_on_write_callback(int fd, size_t length, const string &s, const on_write_callback_type &on_write_callback) {
     epoll_event event{};
     event.data.fd = fd;
     event.events = EPOLLOUT;
@@ -97,7 +97,7 @@ void EventLoop::write(int fd, size_t length, const string &s, const on_write_cal
     write_waiters[fd] = on_write_callback;
 }
 
-void EventLoop::read(int fd, size_t length, const on_read_callback_type &on_read_callback) {
+void EventLoop::register_on_read_callback(int fd, size_t length, const on_read_callback_type &on_read_callback) {
     epoll_event event{};
     event.data.fd = fd;
     event.events = EPOLLIN;
@@ -117,7 +117,7 @@ void EventLoop::read(int fd, size_t length, const on_read_callback_type &on_read
     read_waiters[fd] = on_read_callback;
 }
 
-void EventLoop::close(int fd) {
+void EventLoop::close_fd(int fd) {
     if (watched_fds.contains(fd)) {
         int ret = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
         if (ret < 0) {
