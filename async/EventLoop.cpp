@@ -50,6 +50,7 @@ const int EVENT_NUMBER = 100;
                 int client_fd = accept4(fd, nullptr, nullptr, SOCK_NONBLOCK);
                 if (client_fd < 0) {
                     printf("accept4 error: %s\n", strerror(errno));
+                    exit(0);
                 }
                 // do not erase fd from those watched
                 auto client = client_factories.at(fd)();
@@ -64,6 +65,10 @@ const int EVENT_NUMBER = 100;
                 size_t size = client->read_size;
                 char buf[size];
                 ssize_t read_ret = ::read(fd, buf, size);
+                if (read_ret < 0) {
+                    printf("read error: %s\n", strerror(errno));
+                    exit(0);
+                }
                 read_waiters.erase(fd);
                 // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
                 client->on_read(read_ret, string(buf, buf + read_ret));

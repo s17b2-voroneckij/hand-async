@@ -1,12 +1,10 @@
 #include <iostream>
 #include <vector>
 #include <cstring>
-#include <poll.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <fstream>
-#include <unistd.h>
 #include "async/EventLoop.hpp"
 #include <memory>
 
@@ -54,22 +52,11 @@ protected:
 
     void on_write(ssize_t writen_size) override {
         // cerr << "on write called for fd: " << "\n";
-        if (writen_size < 0) {
-            fprintf(stderr, "register_on_write_callback error %s\n", strerror(errno));
-            return ;
-        }
-        if (writen_size == 0) {
-            fprintf(stderr, "wrote 0, weird\n");
-        }
         read(READ_SIZE);
     }
 
     void on_read(ssize_t read_ret, string s) override {
         // cerr << "on_read called with " << " s: " << s << "\n";
-        if (read_ret < 0) {
-            fprintf(stderr, "register_on_read_callback error %s\n", strerror(errno));
-            return ;
-        }
         if (read_ret == 0) {
             fprintf(stderr, "client finished, leaving\n");
             return;
@@ -81,6 +68,7 @@ protected:
 int main() {
     int socket_fd = init_listening();
     EventLoop eventLoop;
+    // register client takes socket fd for listening and client factory
     eventLoop.register_client(socket_fd, [] () {
         return std::shared_ptr<IClient>(new EchoClient());
     });
