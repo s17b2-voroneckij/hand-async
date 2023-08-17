@@ -9,18 +9,20 @@
 #include <unistd.h>
 #include "async/EventLoop.hpp"
 
+using std::cerr;
+
 const int PORT = 8093;
 const int READ_SIZE = 100;
 
 int init_listening() {
     int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_fd < 0) {
-        printf("socket error: %s\n", strerror(errno));
+        fprintf(stderr, "socket error: %s\n", strerror(errno));
         exit(0);
     }
     int ret = fcntl(socket_fd, F_SETFL, O_NONBLOCK);
     if (ret == -1) {
-        printf("fcntl error: %s\n", strerror(errno));
+        fprintf(stderr, "fcntl error: %s\n", strerror(errno));
         exit(0);
     }
     sockaddr_in sin{};
@@ -28,14 +30,14 @@ int init_listening() {
     sin.sin_port = htons(PORT);
     sin.sin_addr = in_addr{0};
     if (bind(socket_fd, reinterpret_cast<const sockaddr *>(&sin), sizeof(sin)) < 0) {
-        printf("bind error: %s\n", strerror(errno));
+        fprintf(stderr, "bind error: %s\n", strerror(errno));
         exit(0);
     }
     if (listen(socket_fd, 10) < 0) {
-        printf("listen error: %s\n", strerror(errno));
+        fprintf(stderr, "listen error: %s\n", strerror(errno));
         exit(0);
     }
-    printf("listening on port %d\n", PORT);
+    fprintf(stderr, "listening on port %d\n", PORT);
     return socket_fd;
 }
 
@@ -46,29 +48,32 @@ int main() {
     on_write_callback_type on_write;
     on_read_callback_type on_read;
     on_accept = [&] (int client_fd) {
+        cerr << "on_accept called for client " << client_fd << "\n";
         eventLoop.register_on_read_callback(client_fd, READ_SIZE, on_read);
     };
     on_read = [&] (int client_fd, int read, const string& s) {
+        cerr << "on_read called with fd " << client_fd << " s: " << s << "\n";
         if (read < 0) {
-            printf("register_on_read_callback error %s\n", strerror(errno));
+            fprintf(stderr, "register_on_read_callback error %s\n", strerror(errno));
             eventLoop.close_fd(client_fd);
             return ;
         }
         if (read == 0) {
-            printf("client finished, leaving\n");
+            fprintf(stderr, "client finished, leaving\n");
             eventLoop.close_fd(client_fd);
             return;
         }
         eventLoop.register_on_write_callback(client_fd, s.size(), s, on_write);
     };
     on_write = [&] (int client_fd, int wrote) {
+        cerr << "on write called for fd: " << client_fd << "\n";
         if (wrote < 0) {
-            printf("register_on_write_callback error %s\n", strerror(errno));
+            fprintf(stderr, "register_on_write_callback error %s\n", strerror(errno));
             eventLoop.close_fd(client_fd);
             return ;
         }
         if (wrote == 0) {
-            printf("wrote 0, weird\n");
+            fprintf(stderr, "wrote 0, weird\n");
         }
         eventLoop.register_on_read_callback(client_fd, READ_SIZE, on_read);
     };
