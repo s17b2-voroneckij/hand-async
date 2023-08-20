@@ -7,10 +7,11 @@
 #include <fstream>
 #include "async/EventLoop.hpp"
 #include <memory>
+#include <csignal>
 
 using std::cerr;
 
-const int PORT = 8094;
+const int PORT = 8002;
 const int READ_SIZE = 100;
 
 int init_listening() {
@@ -66,6 +67,7 @@ protected:
 };
 
 int main() {
+    signal(SIGPIPE, SIG_IGN);
     int socket_fd = init_listening();
     EventLoop eventLoop;
     // register client takes socket fd for listening and client factory

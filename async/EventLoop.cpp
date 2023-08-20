@@ -34,10 +34,9 @@ const int EVENT_NUMBER = 100;
                 auto client = write_waiters.at(fd);
                 ssize_t write_ret = ::write(fd, client->write_string.c_str(), client->write_string.size());
                 if (write_ret < 0) {
-                    printf("register_on_write_callback error: %s\n", strerror(errno));
-                    exit(0);
+                    //printf("register_on_write_callback error: %s\n", strerror(errno));
                 }
-                if (write_ret == client->write_string.size()) {
+                if (write_ret == client->write_string.size() || write_ret < 0) {
                     // erase fd from events
                     write_waiters.erase(fd);
                     // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
@@ -66,59 +65,52 @@ const int EVENT_NUMBER = 100;
                 char buf[size];
                 ssize_t read_ret = ::read(fd, buf, size);
                 if (read_ret < 0) {
-                    printf("initiate_read error: %s\n", strerror(errno));
-                    exit(0);
+                    //printf("initiate_read error: %s\n", strerror(errno));
                 }
                 read_waiters.erase(fd);
                 // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
-                client->on_read(read_ret, string(buf, buf + read_ret));
+                if (read_ret >= 0) {
+                    client->on_read(read_ret, string(buf, buf + read_ret));
+                } else {
+                    client->on_read(read_ret, string());
+                }
             }
         }
     }
 }
 
 void EventLoop::register_on_write_callback(const shared_ptr<IClient>& client) {
-    epoll_event event{};
     auto fd = client->fd;
-    event.data.fd = fd;
-    event.events = EPOLLOUT;
     if (!watched_fds.contains(fd)) {
+        epoll_event event{};
+        event.data.fd = fd;
+        event.events = EPOLLOUT | EPOLLIN;
         int ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
         if (ret < 0) {
             printf("epoll_ctl error: %s\n", strerror(errno));
         }
         watched_fds.insert(fd);
-    } else {
-        int ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
-        if (ret < 0) {
-            printf("epoll_ctl error: %s\n", strerror(errno));
-        }
     }
     write_waiters[fd] = client;
 }
 
 void EventLoop::register_on_read_callback(const shared_ptr<IClient>& client) {
-    epoll_event event{};
     int fd = client->fd;
-    event.data.fd = fd;
-    event.events = EPOLLIN;
     if (!watched_fds.contains(fd)) {
+        epoll_event event{};
+        event.data.fd = fd;
+        event.events = EPOLLIN | EPOLLOUT;
         int ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
         if (ret < 0) {
             printf("epoll_ctl error: %s\n", strerror(errno));
         }
         watched_fds.insert(fd);
-    } else {
-        int ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
-        if (ret < 0) {
-            printf("epoll_ctl error: %s\n", strerror(errno));
-        }
     }
     read_waiters[fd] = client;
 }
 
 void EventLoop::close_fd(int fd) {
-    fprintf(stderr, "close_fd\n");
+    //fprintf(stderr, "close_fd\n");
     if (watched_fds.contains(fd)) {
         int ret = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
         if (ret < 0) {

@@ -4,7 +4,7 @@
 using std::cerr;
 
 IClient::~IClient() {
-    cerr << "~IClient\n";
+    //cerr << "~IClient\n";
     loop->close_fd(fd);
 }
 
