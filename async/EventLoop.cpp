@@ -3,6 +3,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <iostream>
 
 
 EventLoop::EventLoop() {
@@ -16,12 +17,16 @@ EventLoop::~EventLoop() {
     close_fd(epoll_fd);
 }
 
-const int EVENT_NUMBER = 100;
+const int EVENT_NUMBER = 5000;
 
 [[noreturn]] void EventLoop::run_forever() {
     while (true) {
         epoll_event events[EVENT_NUMBER];
         int ret = epoll_wait(epoll_fd, events, EVENT_NUMBER, -1);
+        if (ret > 20) {
+            int gt = 0;
+        }
+        //std::cerr << "epoll_wait ret is " << ret << "\n";
         if (ret < 0) {
             printf("epoll_wait error: %s\n", strerror(errno));
             exit(1);
@@ -39,25 +44,32 @@ const int EVENT_NUMBER = 100;
                 if (write_ret == client->write_string.size() || write_ret < 0) {
                     // erase fd from events
                     write_waiters.erase(fd);
-                    // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
+                    epoll_event event{};
+                    event.data.fd = fd;
+                    event.events = EPOLLIN;
+                    int ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
+                    if (ret < 0) {
+                        printf("epoll_ctl error: %s\n", strerror(errno));
+                    }
                     client->on_write(write_ret);
                 } else {
                     // this isn`t really effective
                     client->write_string = client->write_string.substr(write_ret);
                 }
             } else if (event.events & EPOLLIN && client_factories.contains(fd)) {
-                int client_fd = accept4(fd, nullptr, nullptr, SOCK_NONBLOCK);
-                if (client_fd < 0) {
-                    printf("accept4 error: %s\n", strerror(errno));
-                    exit(0);
-                }
-                // do not erase fd from those watched
-                auto client = client_factories.at(fd)();
-                // accept_waiters.erase(fd);
-                // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
-                client->fd = client_fd;
-                client->loop = this;
-                client->on_accept();
+                int client_fd;
+                do {
+                    client_fd = accept4(fd, nullptr, nullptr, SOCK_NONBLOCK);
+                    // do not erase fd from those watched
+                    if (client_fd >= 0) {
+                        auto client = client_factories.at(fd)();
+                        // accept_waiters.erase(fd);
+                        // epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
+                        client->fd = client_fd;
+                        client->loop = this;
+                        client->on_accept();
+                    }
+                } while (client_fd >= 0);
             } else if (event.events & EPOLLIN && read_waiters.contains(fd)) {
                 // let`s register_on_read_callback
                 auto client = read_waiters.at(fd);
@@ -90,6 +102,14 @@ void EventLoop::register_on_write_callback(const shared_ptr<IClient>& client) {
             printf("epoll_ctl error: %s\n", strerror(errno));
         }
         watched_fds.insert(fd);
+    } else {
+        epoll_event event{};
+        event.data.fd = fd;
+        event.events = EPOLLOUT | EPOLLIN;
+        int ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
+        if (ret < 0) {
+            printf("epoll_ctl error: %s\n", strerror(errno));
+        }
     }
     write_waiters[fd] = client;
 }
@@ -99,7 +119,7 @@ void EventLoop::register_on_read_callback(const shared_ptr<IClient>& client) {
     if (!watched_fds.contains(fd)) {
         epoll_event event{};
         event.data.fd = fd;
-        event.events = EPOLLIN | EPOLLOUT;
+        event.events = EPOLLIN;
         int ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
         if (ret < 0) {
             printf("epoll_ctl error: %s\n", strerror(errno));

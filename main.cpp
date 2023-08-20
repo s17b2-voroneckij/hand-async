@@ -8,13 +8,13 @@
 #include "async/EventLoop.hpp"
 #include <memory>
 #include <csignal>
+#include <thread>
 
 using std::cerr;
 
-const int PORT = 8002;
 const int READ_SIZE = 100;
 
-int init_listening() {
+int init_listening(int PORT) {
     int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_fd < 0) {
         fprintf(stderr, "socket error: %s\n", strerror(errno));
@@ -41,13 +41,20 @@ int init_listening() {
     return socket_fd;
 }
 
+unsigned long fibonacci(long n) {
+    if (n <= 2) {
+        return 1;
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
 class EchoClient: public IClient {
 public:
     EchoClient() = default;
 
 protected:
     void on_accept() override {
-        cerr << "on_accept called for client " << "\n";
+        //cerr << "on_accept called for client " << "\n";
         initiate_read(READ_SIZE);
     }
 
@@ -59,16 +66,27 @@ protected:
     void on_read(ssize_t read_ret, string s) override {
         // cerr << "on_read called with " << " s: " << s << "\n";
         if (read_ret == 0) {
-            fprintf(stderr, "client finished, leaving\n");
+            //fprintf(stderr, "client finished, leaving\n");
             return;
         }
-        initiate_write(s);
+        long n = strtol(s.c_str(), nullptr, 10);
+        initiate_write("response: " + std::to_string(fibonacci(n)) + "\n");
     }
 };
 
-int main() {
+int main(int argc, char** argv) {
     signal(SIGPIPE, SIG_IGN);
-    int socket_fd = init_listening();
+//    std::thread other_worker([] () {
+//        int socket_fd = init_listening(8002);
+//        EventLoop eventLoop;
+//        // register client takes socket fd for listening and client factory
+//        eventLoop.register_client(socket_fd, [] () {
+//            return std::shared_ptr<IClient>(new EchoClient());
+//        });
+//        eventLoop.run_forever();
+//    });
+//    other_worker.detach();
+    int socket_fd = init_listening(strtol(argv[1], nullptr, 10));
     EventLoop eventLoop;
     // register client takes socket fd for listening and client factory
     eventLoop.register_client(socket_fd, [] () {
